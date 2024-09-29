@@ -1,0 +1,52 @@
+{% extends 'generic/object.html' %}
+
+{% block content %}
+    <h2>Connection to {{ object.name }}</h2>
+
+    <form method="post">
+        {% csrf_token %}
+        <label for="ip">IP Address:</label>
+        <input type="text" id="ip" name="ip" value="{{ object.primary_ip4.address }}" required><br>
+
+        <label for="username">Username:</label>
+        <input type="text" id="username" name="username" value="admin" required><br>
+
+        <label for="password">Password:</label>
+        <input type="password" id="password" name="password" required><br>
+
+        <label for="method">Connection Method:</label>
+        <select id="method" name="method">
+            <option value="ssh">SSH</option>
+            <option value="telnet">Telnet</option>
+        </select><br>
+
+        <button type="submit">Connect</button>
+    </form>
+
+    <h2>Device Connection Logs</h2>
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Connection Time</th>
+                <th>Status</th>
+                <th>Hostname</th>
+                <th>Connection Method</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for log in connection_logs %}
+            <tr>
+                <td>{{ log.connection_time }}</td>
+                <td>{{ log.connection_status }}</td>
+                <td>{{ log.hostname }}</td>
+                <td>{{ log.connection_method }}</td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4">No connection logs available.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% endblock %}
