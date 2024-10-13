@@ -1,46 +1,40 @@
-import paramiko
-import telnetlib
-import time
+from netmiko import ConnectHandler
 
 class DeviceConnectionManager:
-    def __init__(self, ip, username, password):
-        self.ip = ip
+    def __init__(self, device, username, password, secret=None):
+        self.device = device
         self.username = username
         self.password = password
+        self.secret = secret or password
 
-    def connect_ssh(self):
-        ssh_client = paramiko.SSHClient()
-        ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    def connect(self, connection_method):
+        ip_address = str(self.device.primary_ip4.address.ip)  # This extracts only the IP part
+
+        device_params = {
+            "device_type": "cisco_ios",  # Adjust based on your device type
+            "host": ip_address,  # Use the extracted IP address
+            "username": self.username,  # Use the username provided by the user
+            "password": self.password,  # Use the password provided by the user
+            "secret": self.secret,  # Include the secret for enable mode
+        }
+
+        if connection_method == "telnet":
+            device_params["device_type"] = "cisco_ios_telnet"
+
         try:
-            ssh_client.connect(self.ip, username=self.username, password=self.password)
-            return ssh_client, "Connected"
+            net_connect = ConnectHandler(**device_params)
+            net_connect.enable()  # Enter enable mode
+            return net_connect, "Connected"
         except Exception as e:
             return None, f"Connection failed: {e}"
 
-    def execute_ssh_command(self, ssh_client, command):
-        stdin, stdout, stderr = ssh_client.exec_command(command)
-        output = stdout.read().decode('utf-8')
-        return output
-
-    def close_ssh(self, ssh_client):
-        ssh_client.close()
-
-    def connect_telnet(self):
+    def execute_command(self, connection, command):
         try:
-            telnet_client = telnetlib.Telnet(self.ip)
-            telnet_client.read_until(b"login: ")
-            telnet_client.write(self.username.encode('ascii') + b"\n")
-            telnet_client.read_until(b"Password: ")
-            telnet_client.write(self.password.encode('ascii') + b"\n")
-            return telnet_client, "Connected"
+            output = connection.send_command(command)
+            return output
         except Exception as e:
-            return None, f"Connection failed: {e}"
+            return f"Failed to execute command: {e}"
 
-    def execute_telnet_command(self, telnet_client, command):
-        telnet_client.write(command.encode('ascii') + b"\n")
-        time.sleep(1)
-        output = telnet_client.read_very_eager().decode('ascii')
-        return output
+    def close_connection(self, connection):
+        connection.disconnect()
 
-    def close_telnet(self, telnet_client):
-        telnet_client.close()

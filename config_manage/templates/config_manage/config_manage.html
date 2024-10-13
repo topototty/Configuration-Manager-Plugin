@@ -1,0 +1,97 @@
+{% extends 'dcim/device/base.html' %}
+{% load static %}
+{% load i18n %}
+
+{% block title %}{{ object }} - {% trans "Configuration manage" %}{% endblock %}
+
+{% block content %}
+    <h2>{% trans "Comparison of configurations" %}</h2>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <h5 class="card-header d-flex justify-content-between">
+                    {% trans "Configurations" %}
+                    <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#configWrapper" aria-expanded="false" aria-controls="configWrapper">
+                        Hide
+                    </button>
+                </h5>
+                <div class="collapse show" id="configWrapper">
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-6">
+                                <div class="card">
+                                    <h5 class="card-header d-flex justify-content-between">
+                                        {% trans "Device Configuration" %}
+                                        <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#deviceConfig" aria-expanded="false" aria-controls="deviceConfig">
+                                            Hide
+                                        </button>
+                                    </h5>
+                                    <div class="collapse show" id="deviceConfig">
+                                        <div class="card-body">
+                                            {% if config %}
+                                                <pre>{{ config.config_output }}</pre>
+                                                <p><strong>{% trans "Date Created" %}:</strong> {{ config.created_at }}</p>
+                                            {% else %}
+                                                <div class="text-muted">{% trans "No configuration available for this device." %}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="col-6">
+                                <div class="card">
+                                    <h5 class="card-header d-flex justify-content-between">
+                                        {% trans "Rendered Config" %}
+                                        <a href="?export=True" class="btn btn-primary lh-1" role="button">
+                                            <i class="mdi mdi-download" aria-hidden="true"></i> {% trans "Download" %}
+                                        </a>
+                                        <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#renderedConfig" aria-expanded="false" aria-controls="renderedConfig">
+                                            Hide
+                                        </button>
+                                    </h5>
+                                    <div class="collapse show" id="renderedConfig">
+                                        <div class="card-body">
+                                            {% if rendered_config %}
+                                                <pre>{{ rendered_config }}</pre>
+                                            {% else %}
+                                                <div class="text-muted">{% trans "No configuration template found." %}</div>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <div class="card">
+                <h5 class="card-header d-flex justify-content-between">
+                    {% trans "Configuration Differences" %}
+                    <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#configDiff" aria-expanded="false" aria-controls="configDiff">
+                        Hide
+                    </button>
+                </h5>
+                <div class="collapse show" id="configDiff">
+                    <div class="card-body">
+                        <pre style="line-height: 0.7; white-space: pre-wrap;">
+                        {% if config_diff %}
+                            {% for item in config_diff %}
+                                <span class="{{ item.class }}">{{ item.line }}</span>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-muted">{% trans "No differences found." %}</div>
+                        {% endif %}
+                        </pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}
