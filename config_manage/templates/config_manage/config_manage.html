@@ -94,4 +94,38 @@
             </div>
         </div>
     </div>
+
+        <h2>{% trans "Configuration Block Management" %}</h2>
+
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <h5 class="card-header d-flex justify-content-between">
+                    {% trans "Current Configuration" %}
+                </h5>
+                <div class="card-body">
+                    <div class="row">
+                        {% for block in config_blocks %}
+                            <div class="col-12 mb-3">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between">
+                                        <strong>{{ block.title }}</strong>
+                                        {% if block.editable %}
+                                            <button type="button" class="btn btn-primary btn-sm">
+                                                {% trans "Edit" %}
+                                            </button>
+                                        {% endif %}
+                                    </div>
+                                    <div class="card-body" style="background-color: #f9f9f9;">
+                                        <pre>{{ block.content }}</pre>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
 {% endblock %}

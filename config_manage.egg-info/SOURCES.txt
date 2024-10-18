@@ -2,6 +2,7 @@ MANIFEST.in
 setup.py
 config_manage/__init__.py
 config_manage/device_connection_manager.py
+config_manage/forms.py
 config_manage/models.py
 config_manage/tables.py
 config_manage/urls.py
@@ -14,4 +15,6 @@ config_manage.egg-info/not-zip-safe
 config_manage.egg-info/top_level.txt
 config_manage/migrations/0001_initial.py
 config_manage/migrations/0002_deviceconnectionlog_connection_method_and_more.py
+config_manage/migrations/0003_alter_deviceconnectionlog_connection_status_and_more.py
+config_manage/migrations/0004_alter_deviceconnectionlog_options_and_more.py
 config_manage/migrations/__init__.py

@@ -1,7 +1,8 @@
 import difflib
+from typing import re
 
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django.views import View
 
 from dcim.models import Device
@@ -12,6 +13,26 @@ from .models import DeviceConnectionLog, DeviceConfig
 from .tables import DeviceConnectionLogTable
 from django_tables2 import RequestConfig
 
+
+def get_diff(latest_config_lines, rendered_config_lines):
+    diff = []
+    matcher = difflib.SequenceMatcher(None, latest_config_lines, rendered_config_lines)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == 'equal':
+            for line in latest_config_lines[i1:i2]:
+                diff.append({'line': line, 'class': 'text-muted'})  # Совпадающие строки
+        elif tag == 'replace':
+            for line in latest_config_lines[i1:i2]:
+                diff.append({'line': f"- {line}", 'class': 'text-danger'})  # Удаленные строки
+            for line in rendered_config_lines[j1:j2]:
+                diff.append({'line': f"+ {line}", 'class': 'text-success'})  # Новые строки
+        elif tag == 'delete':
+            for line in latest_config_lines[i1:i2]:
+                diff.append({'line': f"- {line}", 'class': 'text-danger'})  # Удаленные строки
+        elif tag == 'insert':
+            for line in rendered_config_lines[j1:j2]:
+                diff.append({'line': f"+ {line}", 'class': 'text-success'})  # Новые строки
+    return diff
 
 @register_model_view(Device, name="Connections")
 class DeviceConnectionView(PermissionRequiredMixin, View):
@@ -138,18 +159,15 @@ class DeviceConfigView(PermissionRequiredMixin, View):
         else:
             rendered_config = None
 
+        if latest_config:
+            config_blocks = self.split_config_into_blocks(latest_config.config_output)
+        else:
+            config_blocks = []
+
         latest_config_lines = latest_config.config_output.splitlines() if latest_config else []
         rendered_config_lines = rendered_config.splitlines() if rendered_config else []
 
-        diff = []
-        if rendered_config:
-            for line in difflib.unified_diff(latest_config_lines, rendered_config_lines, lineterm=''):
-                if line.startswith('+'):
-                    diff.append({'line': line, 'class': 'text-success'})
-                elif line.startswith('-'):
-                    diff.append({'line': line, 'class': 'text-danger'})
-                else:
-                    diff.append({'line': line, 'class': 'text-muted'})
+        config_diff = get_diff(latest_config_lines, rendered_config_lines)
 
         return render(
             request,
@@ -159,7 +177,40 @@ class DeviceConfigView(PermissionRequiredMixin, View):
                 "config": latest_config,
                 "config_template": config_template,
                 "rendered_config": rendered_config,
-                "config_diff": diff,
+                "config_diff": config_diff,
+                "config_blocks": config_blocks,
                 "tab": self.tab,
             },
         )
+
+    def split_config_into_blocks(self, config_output):
+        block_delimiters = ['interface', 'router', 'line', 'vlan', 'access-list']  # Примеры ключевых слов для разделения блоков
+        blocks = []
+        current_block = {"title": "", "content": "", "editable": False}
+
+        lines = config_output.splitlines()
+        for line in lines:
+            for delimiter in block_delimiters:
+                if line.startswith(delimiter):
+                    if current_block["content"]:
+                        blocks.append(current_block)
+                    current_block = {
+                        "title": line,
+                        "content": line + "\n",
+                        "editable": self.is_block_editable(line)
+                    }
+                    break
+            else:
+                current_block["content"] += line + "\n"
+
+        if current_block["content"]:
+            blocks.append(current_block)
+
+        return blocks
+
+    def is_block_editable(self, block_title):
+        editable_keywords = ['interface', 'router']
+        for keyword in editable_keywords:
+            if keyword in block_title:
+                return True
+        return False
