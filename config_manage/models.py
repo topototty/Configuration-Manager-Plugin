@@ -24,3 +24,18 @@ class DeviceConfig(models.Model):
 
     def __str__(self):
         return f"Конфигурация {self.device.name} от {self.created_at}"
+
+
+class DevicePollConfig(models.Model):
+    POLL_FREQUENCY_CHOICES = (
+        ('hourly', 'Ежечасно'),
+        ('daily', 'Ежедневно'),
+        ('weekly', 'Еженедельно'),
+    )
+
+    device = models.OneToOneField(Device, on_delete=models.CASCADE, related_name='poll_config')
+    poll_frequency = models.CharField(max_length=10, choices=POLL_FREQUENCY_CHOICES, default='daily')
+    last_polled_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.device.name} - {self.get_poll_frequency_display()}"

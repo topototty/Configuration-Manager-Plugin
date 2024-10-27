@@ -12,7 +12,8 @@
             <div class="card">
                 <h5 class="card-header d-flex justify-content-between">
                     {% trans "Configurations" %}
-                    <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#configWrapper" aria-expanded="false" aria-controls="configWrapper">
+                    <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#configWrapper" aria-expanded="false" aria-controls="configWrapper">
                         Hide
                     </button>
                 </h5>
@@ -23,7 +24,9 @@
                                 <div class="card">
                                     <h5 class="card-header d-flex justify-content-between">
                                         {% trans "Device Configuration" %}
-                                        <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#deviceConfig" aria-expanded="false" aria-controls="deviceConfig">
+                                        <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#deviceConfig" aria-expanded="false"
+                                                aria-controls="deviceConfig">
                                             Hide
                                         </button>
                                     </h5>
@@ -31,7 +34,8 @@
                                         <div class="card-body">
                                             {% if config %}
                                                 <pre>{{ config.config_output }}</pre>
-                                                <p><strong>{% trans "Date Created" %}:</strong> {{ config.created_at }}</p>
+                                                <p><strong>{% trans "Date Created" %}:</strong> {{ config.created_at }}
+                                                </p>
                                             {% else %}
                                                 <div class="text-muted">{% trans "No configuration available for this device." %}</div>
                                             {% endif %}
@@ -47,7 +51,9 @@
                                         <a href="?export=True" class="btn btn-primary lh-1" role="button">
                                             <i class="mdi mdi-download" aria-hidden="true"></i> {% trans "Download" %}
                                         </a>
-                                        <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#renderedConfig" aria-expanded="false" aria-controls="renderedConfig">
+                                        <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse"
+                                                data-bs-target="#renderedConfig" aria-expanded="false"
+                                                aria-controls="renderedConfig">
                                             Hide
                                         </button>
                                     </h5>
@@ -74,7 +80,8 @@
             <div class="card">
                 <h5 class="card-header d-flex justify-content-between">
                     {% trans "Configuration Differences" %}
-                    <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse" data-bs-target="#configDiff" aria-expanded="false" aria-controls="configDiff">
+                    <button class="btn btn-sm btn-secondary" type="button" data-bs-toggle="collapse"
+                            data-bs-target="#configDiff" aria-expanded="false" aria-controls="configDiff">
                         Hide
                     </button>
                 </h5>
@@ -95,7 +102,7 @@
         </div>
     </div>
 
-        <h2>{% trans "Configuration Block Management" %}</h2>
+    <h2>{% trans "Configuration Block Management" %}</h2>
 
     <div class="row">
         <div class="col-12">
@@ -111,7 +118,10 @@
                                     <div class="card-header d-flex justify-content-between">
                                         <strong>{{ block.title }}</strong>
                                         {% if block.editable %}
-                                            <button type="button" class="btn btn-primary btn-sm">
+                                            <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal"
+                                                    data-bs-target="#editBlockModal"
+                                                    data-block-title="{{ block.title }}"
+                                                    data-block-content="{{ block.content }}">
                                                 {% trans "Edit" %}
                                             </button>
                                         {% endif %}
@@ -128,4 +138,73 @@
         </div>
     </div>
 
+    <div class="modal fade" id="editBlockModal" tabindex="-1" aria-labelledby="editBlockModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <form id="editBlockForm" method="POST">
+                    {% csrf_token %}
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="editBlockModalLabel">{% trans "Edit Block" %}</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="form-group">
+                            <label for="username">{% trans "Username" %}</label>
+                            <input type="text" class="form-control" id="username" name="username" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="password">{% trans "Password" %}</label>
+                            <input type="password" class="form-control" id="password" name="password" required>
+                        </div>
+
+                        <div class="form-group mt-3">
+                            <label for="blockContent">{% trans "Block Content" %}</label>
+                            <textarea class="form-control" id="blockContent" name="block_content" rows="10"
+                                      required></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary"
+                                data-bs-dismiss="modal">{% trans "Cancel" %}</button>
+                        <button type="submit" class="btn btn-primary">{% trans "Save changes" %}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+{% endblock %}
+
+{% block extra_js %}
+    <script>
+        document.getElementById('editBlockForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            var form = this;
+            var formData = new FormData(form);
+
+            fetch(form.action, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        var modal = bootstrap.Modal.getInstance(editBlockModal);
+                        modal.hide();
+
+                        var updatedBlock = document.querySelector(`button[data-block-title="${data.block_title}"]`).closest('.card').querySelector('pre');
+                        updatedBlock.textContent = data.updated_content;
+                    } else {
+                        alert(data.error);
+                    }
+                })
+                .catch(error => console.error('Error:', error));
+        });
+
+    </script>
 {% endblock %}

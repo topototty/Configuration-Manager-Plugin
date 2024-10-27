@@ -1,17 +1,19 @@
 import difflib
-from typing import re
-
+from datetime import timezone
 from django.contrib.auth.mixins import PermissionRequiredMixin
-from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
 from django.views import View
-
-from dcim.models import Device
 from utilities.views import ViewTab, register_model_view
-from .device_connection_manager import DeviceConnectionManager
-from .forms import DeviceConnectionForm
-from .models import DeviceConnectionLog, DeviceConfig
+
+from .models import DeviceConnectionLog, DevicePollConfig, DeviceConfig
 from .tables import DeviceConnectionLogTable
 from django_tables2 import RequestConfig
+
+from django.shortcuts import render, redirect, get_object_or_404
+from .forms import DeviceConnectionForm
+from dcim.models import Device
+from .device_connection_manager import DeviceConnectionManager
+from django.utils import timezone
 
 
 def get_diff(latest_config_lines, rendered_config_lines):
@@ -214,3 +216,98 @@ class DeviceConfigView(PermissionRequiredMixin, View):
             if keyword in block_title:
                 return True
         return False
+
+    def post(self, request, pk, block_title=None):
+        device = Device.objects.get(pk=pk)
+        latest_config = DeviceConfig.objects.filter(device=device).order_by('-created_at').first()
+
+        if not latest_config:
+            return JsonResponse({"success": False, "error": "No configuration available to edit."})
+
+        block_content = request.POST.get("block_content", "")
+
+        config_output = self.update_block_in_config(latest_config.config_output, block_title, block_content)
+
+        DeviceConfig.objects.create(
+            device=device,
+            config_output=config_output
+        )
+
+        return JsonResponse({"success": True, "block_title": block_title, "updated_content": block_content})
+
+    def update_block_in_config(self, config_output, block_title, block_content):
+        lines = config_output.splitlines()
+        new_config = []
+        in_block = False
+
+        for line in lines:
+            if line.startswith(block_title):
+                in_block = True
+                new_config.append(block_content)
+            elif in_block and any(line.startswith(d) for d in ['interface', 'router', 'line', 'vlan', 'access-list']):
+                in_block = False
+                new_config.append(line)
+            elif not in_block:
+                new_config.append(line)
+
+        if in_block:
+            new_config.append(block_content)
+
+        return "\n".join(new_config)
+
+def device_connect_view(request, device_id):
+    device = get_object_or_404(Device, id=device_id)
+
+    if request.method == 'POST':
+        form = DeviceConnectionForm(request.POST)
+        if form.is_valid():
+            username = form.cleaned_data['username']
+            password = form.cleaned_data['password']
+            method = form.cleaned_data['method']
+            poll_frequency = form.cleaned_data['poll_frequency']
+
+            poll_config, created = DevicePollConfig.objects.get_or_create(device=device)
+            poll_config.poll_frequency = poll_frequency
+            poll_config.save()
+
+            manager = DeviceConnectionManager(device, username, password)
+            connection, status = manager.connect(method)
+
+            if connection:
+                command = "show running-config"
+                output = manager.execute_command(connection, command)
+
+                manager.close_connection(connection)
+
+                DeviceConfig.objects.create(
+                    device=device,
+                    config_output=output
+                )
+
+                poll_config.last_polled_at = timezone.now()
+                poll_config.last_poll_status = "Success"
+                poll_config.last_poll_error = ""
+                poll_config.save()
+
+                return render(
+                    request,
+                    "config_manage/tab_example.html",
+                    context={
+                        'form': form,
+                        'device': device,
+                        'output': output,
+                    }
+                )
+            else:
+                poll_config.last_poll_status = "Failed"
+                poll_config.last_poll_error = "Could not connect to device."
+                poll_config.save()
+
+                return redirect('dcim:device', pk=device_id)
+
+    else:
+        form = DeviceConnectionForm()
+
+    return render(request, 'config_manage/tab_example.html', {'form': form, 'device': device})
+
+
